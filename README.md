@@ -8,7 +8,7 @@ Team Aurorabots | HAL-42 | Hack-A-League 4.0
 The Vision-Assisting Hybrid Robot is an intelligent ground reconnaissance system engineered for:
  Military Surveillance in GPS-denied zones
  Disaster Management & Post-Event Search Operations
-🌫 Low-Visibility & Debris-Filled Environments
+ Low-Visibility & Debris-Filled Environments
 
 It combines multi-sensor fusion, real-time telemetry, and hybrid mobility to deliver rapid situational awareness without risking human lives.
 
