@@ -1,6 +1,6 @@
 # Vision-Assisting-Hybrid-Robot
 Vision-Assisting Hybrid Robot
-🛡 Hybrid Surveillance & Disaster Response Platform
+Hybrid Surveillance & Disaster Response Platform
 
 Team Aurorabots | HAL-42 | Hack-A-League 4.0
 
