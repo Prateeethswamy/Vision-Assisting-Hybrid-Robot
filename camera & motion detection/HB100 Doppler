@@ -1,0 +1,127 @@
+#include <WiFi.h>
+#include <WebServer.h>
+// ========= WIFI =========
+const char* ssid = "Asdfghjkl";
+const char* password = "123456789";
+
+WebServer server(80);
+
+// ===== HB100 =====
+int radarPin = 34;
+
+float baseline = 0;
+bool baselineReady = false;
+
+int motionCounter = 0;
+bool motionDetected = false;
+
+// ⭐ tuned for LM358
+int motionThreshold = 0;
+const int requiredCounts = 3;
+
+// ===== WEB PAGE =====
+String getHTML() {
+  String html = "<!DOCTYPE html><html><head>";
+  html += "<meta http-equiv='refresh' content='1'>";
+  html += "<title>HB100 Radar</title>";
+  html += "<style>";
+  html += "body{font-family:Arial;text-align:center;margin-top:60px;background:#111;color:white;}";
+  html += ".yes{color:#00ff88;font-size:48px;font-weight:bold;}";
+  html += ".no{color:#ff4444;font-size:48px;font-weight:bold;}";
+  html += "</style></head><body>";
+  html += "<h1>HB100 Motion Monitor</h1>";
+
+  if (motionDetected)
+    html += "<div class='yes'>MOTION DETECTED</div>";
+  else
+    html += "<div class='no'>NO MOTION</div>";
+
+  html += "</body></html>";
+  return html;
+}
+
+void handleRoot() {
+  server.send(200, "text/html", getHTML());
+}
+
+// ===== AUTO CALIBRATION =====
+void calibrateRadar() {
+  Serial.println("Calibrating... KEEP AREA STILL");
+
+  long minVal = 4095;
+  long maxVal = 0;
+  long sum = 0;
+
+  for (int i = 0; i < 200; i++) {
+    int v = analogRead(radarPin);
+    sum += v;
+    if (v < minVal) minVal = v;
+    if (v > maxVal) maxVal = v;
+    delay(5);
+  }
+
+  baseline = sum / 200.0;
+  int noise = maxVal - minVal;
+
+  // ⭐ tuned sensitivity (FINAL)
+  motionThreshold = noise * 1.2 + 5;
+
+  Serial.print("Baseline: "); Serial.println(baseline);
+  Serial.print("Noise: "); Serial.println(noise);
+  Serial.print("Threshold: "); Serial.println(motionThreshold);
+
+  baselineReady = true;
+}
+
+// ===================================================
+
+void setup() {
+  Serial.begin(115200);
+  analogSetPinAttenuation(radarPin, ADC_11db);
+
+  delay(3000); // radar warm-up
+  calibrateRadar();
+
+  // WiFi connect
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting WiFi");
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\nWiFi Connected");
+  Serial.print("Open in browser: ");
+  Serial.println(WiFi.localIP());
+
+  server.on("/", handleRoot);
+  server.begin();
+}
+
+// ===================================================
+
+void loop() {
+  server.handleClient();
+  int currentValue = analogRead(radarPin);
+  // ⭐ adaptive baseline (balanced speed)
+  baseline = 0.99 * baseline + 0.01 * currentValue;
+  int delta = abs(currentValue - baseline);
+  // motion accumulation
+  if (delta > motionThreshold)
+    motionCounter++;
+  else if (motionCounter > 0)
+    motionCounter--;
+  motionDetected = (motionCounter >= requiredCounts);
+  // ===== DEBUG =====
+  Serial.print("Val:");
+  Serial.print(currentValue);
+  Serial.print(" Base:");
+  Serial.print((int)baseline);
+  Serial.print(" Delta:");
+  Serial.print(delta);
+  Serial.print(" Motion:");
+  Serial.println(motionDetected ? "YES" : "NO");
+
+  delay(80);
+}
