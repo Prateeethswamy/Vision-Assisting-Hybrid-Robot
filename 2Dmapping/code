@@ -1,0 +1,59 @@
+#include <ESP32Servo.h>
+#define TRIG1 5
+#define ECHO1 18
+#define SERVO1_PIN 19
+#define TRIG2 17
+#define ECHO2 16
+#define SERVO2_PIN 21
+Servo servo1;
+Servo servo2;
+long readUltrasonic(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  long duration = pulseIn(echoPin, HIGH, 30000);
+  long distance = duration * 0.034 / 2;
+  if (distance == 0 || distance > 400) distance = 400;
+  return distance;
+}
+void setup() {
+  Serial.begin(115200);
+  pinMode(TRIG1, OUTPUT);
+  pinMode(ECHO1, INPUT);
+  pinMode(TRIG2, OUTPUT);
+  pinMode(ECHO2, INPUT);
+  servo1.attach(SERVO1_PIN);
+  servo2.attach(SERVO2_PIN);
+}
+void loop() {
+  for (int angle = 0; angle <= 180; angle += 2) {
+    servo1.write(angle);
+    servo2.write(angle);
+    delay(30);
+    long dist1 = readUltrasonic(TRIG1, ECHO1);
+    long dist2 = readUltrasonic(TRIG2, ECHO2);
+    Serial.print(angle);
+    Serial.print(",");
+    Serial.print(dist1);
+    Serial.print(",");
+    Serial.print(angle);
+    Serial.print(",");
+    Serial.println(dist2);
+  }
+  for (int angle = 180; angle >= 0; angle -= 2) {
+    servo1.write(angle);
+    servo2.write(angle);
+    delay(30);
+    long dist1 = readUltrasonic(TRIG1, ECHO1);
+    long dist2 = readUltrasonic(TRIG2, ECHO2);
+    Serial.print(angle);
+    Serial.print(",");
+    Serial.print(dist1);
+    Serial.print(",");
+    Serial.print(angle);
+    Serial.print(",");
+    Serial.println(dist2);
+  }
+}
