@@ -1,0 +1,101 @@
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+#define SERVO_MIN 130
+#define SERVO_MAX 620
+#define SERVO_FREQ 50
+#define SDA_PIN 21
+#define SCL_PIN 22
+// Leg dimensions (mm)
+const float COXA  = 70;
+const float FEMUR = 103;
+const float TIBIA = 138;
+
+// PWM boards (YOUR ADDRESSES)
+Adafruit_PWMServoDriver pwm1 = Adafruit_PWMServoDriver(0x60);
+Adafruit_PWMServoDriver pwm2 = Adafruit_PWMServoDriver(0x41);
+
+// ---------- HOME FOOT POSITIONS ----------
+
+struct FootPos { float x, y, z; };
+FootPos home[6] = {
+  { 120,  120, -110 }, // LF
+  {   0,  140, -110 }, // LM
+  {-120,  120, -110 }, // LR
+  { 120, -120, -110 }, // RF
+  {   0, -140, -110 }, // RM
+  {-120, -120, -110 }  // RR
+};
+
+uint16_t angleToPulse(float angle) {
+  return SERVO_MIN + (SERVO_MAX - SERVO_MIN) * angle / 180.0;
+}
+void setServo(Adafruit_PWMServoDriver &pwm, uint8_t ch, float angle) {
+  pwm.setPWM(ch, 0, angleToPulse(angle));
+}
+void moveLeg(Adafruit_PWMServoDriver &pwm,
+             uint8_t baseCh,
+             float x, float y, float z)
+{
+  float coxaAngle = atan2(y, x) * 180 / PI;
+  float horizontal = sqrt(x*x + y*y) - COXA;
+  float dist = sqrt(horizontal*horizontal + z*z);
+  float a1 = atan2(z, horizontal);
+  float a2 = acos((FEMUR*FEMUR + dist*dist - TIBIA*TIBIA) /
+                  (2 * FEMUR * dist));
+  float femurAngle = (a1 + a2) * 180 / PI;
+  float tibiaAngle = acos((FEMUR*FEMUR + TIBIA*TIBIA - dist*dist) /
+                          (2 * FEMUR * TIBIA)) * 180 / PI;
+  setServo(pwm, baseCh,     90 + coxaAngle);
+  setServo(pwm, baseCh + 1, 90 - femurAngle);
+  setServo(pwm, baseCh + 2, tibiaAngle);
+}
+void setFoot(uint8_t leg, float x, float y, float z)
+{
+  Adafruit_PWMServoDriver &pwm =
+      (leg < 3) ? pwm1 : pwm2;
+  uint8_t baseCh = (leg % 3) * 3;
+  moveLeg(pwm, baseCh, x, y, z);
+}
+float stepLength = 35;
+float liftHeight = 35;
+void tripodStep(bool groupA)
+{
+  for (float t = 0; t <= 1.0; t += 0.04)
+  {
+    for (int i = 0; i < 6; i++)
+    {
+      bool inGroupA = (i==0 || i==4 || i==2); // LF, RM, LR
+      float x = home[i].x;
+      float y = home[i].y;
+      float z = home[i].z;
+
+      if (inGroupA == groupA)
+      {
+        // Swing phase
+        x += stepLength * (t - 0.5);
+        z += liftHeight * sin(PI * t);
+      }
+      else
+      {
+        // Support phase
+        x -= stepLength * (t - 0.5);
+      }
+      setFoot(i, x, y, z);
+    }
+    delay(45); // SLOW SPEED
+  }
+}
+void setup()
+{
+  Wire.begin(SDA_PIN, SCL_PIN);
+  pwm1.begin();
+  pwm2.begin();
+  pwm1.setPWMFreq(SERVO_FREQ);
+  pwm2.setPWMFreq(SERVO_FREQ);
+  delay(1000);
+}
+void loop()
+{
+  tripodStep(true);   // Group A moves
+  tripodStep(false);  // Group B moves
+}
