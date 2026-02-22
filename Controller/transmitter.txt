@@ -1,0 +1,44 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+RF24 radio(7, 8);   // CE, CSN
+const byte address[6] = "00001";
+
+struct Data {
+  int joy1X;
+  int joy1Y;
+  int joy2X;
+  int joy2Y;
+  bool joy1SW;
+  bool joy2SW;
+};
+
+Data sendData;
+
+void setup() {
+
+  pinMode(2, INPUT_PULLUP);  // Joy1 SW
+  pinMode(3, INPUT_PULLUP);  // Joy2 SW
+
+  radio.begin();
+  radio.openWritingPipe(address);
+  radio.setPALevel(RF24_PA_LOW);
+  radio.stopListening();
+}
+
+void loop() {
+
+  sendData.joy1X = analogRead(A1);
+  sendData.joy1Y = analogRead(A2);
+
+  sendData.joy2X = analogRead(A3);
+  sendData.joy2Y = analogRead(A6);
+
+  sendData.joy1SW = !digitalRead(2);
+  sendData.joy2SW = !digitalRead(3);
+
+  radio.write(&sendData, sizeof(sendData));
+
+  delay(20);
+}

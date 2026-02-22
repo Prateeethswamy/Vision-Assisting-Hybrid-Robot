@@ -1,0 +1,87 @@
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+
+RF24 radio(7, 8);   // CE, CSN (same as controller)
+const byte address[6] = "00001";
+
+struct Data {
+  int joy1X;
+  int joy1Y;
+  int joy2X;
+  int joy2Y;
+  bool joy1SW;
+  bool joy2SW;
+};
+
+Data receiveData;
+
+// Motor Pins
+int in1 = 2;
+int in2 = 3;
+int in3 = 4;
+int in4 = 5;
+int ena = 6;
+int enb = 9;   // PWM pin (D7 avoid because CE used)
+
+void setup() {
+
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+  pinMode(ena, OUTPUT);
+  pinMode(enb, OUTPUT);
+
+  radio.begin();
+  radio.openReadingPipe(0, address);
+  radio.setPALevel(RF24_PA_LOW);
+  radio.startListening();
+}
+
+void loop() {
+
+  if (radio.available()) {
+
+    radio.read(&receiveData, sizeof(receiveData));
+
+    int x = receiveData.joy1X;
+    int y = receiveData.joy1Y;
+
+    int speed = map(abs(y - 512), 0, 512, 0, 255);
+
+    analogWrite(ena, speed);
+    analogWrite(enb, speed);
+
+    // STOP default
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, LOW);
+    digitalWrite(in3, LOW);
+    digitalWrite(in4, LOW);
+
+    if (y > 550) {           // Forward
+      digitalWrite(in1, HIGH);
+      digitalWrite(in2, LOW);
+      digitalWrite(in3, HIGH);
+      digitalWrite(in4, LOW);
+    }
+    else if (y < 470) {      // Backward
+      digitalWrite(in1, LOW);
+      digitalWrite(in2, HIGH);
+      digitalWrite(in3, LOW);
+      digitalWrite(in4, HIGH);
+    }
+    else if (x > 550) {      // Right
+      digitalWrite(in1, HIGH);
+      digitalWrite(in2, LOW);
+      digitalWrite(in3, LOW);
+      digitalWrite(in4, HIGH);
+    }
+    else if (x < 470) {      // Left
+      digitalWrite(in1, LOW);
+      digitalWrite(in2, HIGH);
+      digitalWrite(in3, HIGH);
+      digitalWrite(in4, LOW);
+    }
+  }
+}
